@@ -52,11 +52,13 @@ def get_relevant_videos(videos_path, min_frames=60):
     return videos
 
 
-def visualize_masks(masks):
-    for mask in masks:
-        color = np.array([1., 1., 1.])
+def visualize_masks(frames, masks):
+    for frame, mask in zip(frames, masks):
+        color = np.array([0., 1., 0.])
         h, w = mask.shape[-2:]
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+        mask_image = 0.8 * frame + 0.2 * mask_image
+        mask_image = mask_image.astype(np.uint8)
         cv.imshow('mask', mask_image)
         if cv.waitKey(0) & 0xFF == ord('q'):
             break
@@ -119,15 +121,13 @@ def save_frames(frames, fps, save_path):
     video_writer.release()
 
 
-def save_video_and_masks(video_path, masks, points, out_path):
+def save_frames_and_masks(frames, masks, points, fps, out_path):
     os.makedirs(out_path)
 
     masks = np.array(masks, dtype=np.uint8)
     masks = np.repeat(masks, 3, axis=1)
     masks = np.transpose(masks, (0, 2, 3, 1))
 
-    frames, fps = read_video(video_path)
-    frames = frames[points[0][0]:]  # the first picked point is the starting point
     frames = np.array(frames, dtype=np.uint8)
     assert frames.shape == masks.shape, \
         f'Shape of masks and frames does not match: {frames.shape} vs {masks.shape}'
@@ -140,18 +140,24 @@ def save_video_and_masks(video_path, masks, points, out_path):
 
 def process_video(video_path, images_path, predictor, point_picker, out_path):
     finished = False
+    frames = None
     masks = None
     points = None
+    combined = None
+    fps = None
     while not finished:
+        frames, fps = read_video(video_path)
         split_video_into_images(video_path, images_path)
         points = point_picker.pick_points()
         masks = get_masks_from_video(images_path, predictor, points)
-        visualize_masks(masks)
+
+        frames = frames[points[0][0]:]  # first point is the starting point
+        visualize_masks(frames, masks)
 
         choice = input('Repeat? (y/n): ')
         if choice == 'n':
             finished = True
-    save_video_and_masks(video_path, masks, points, out_path)
+    save_frames_and_masks(frames, masks, points, fps, out_path)
 
 
 def main():
