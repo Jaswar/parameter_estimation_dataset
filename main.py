@@ -143,7 +143,6 @@ def process_video(video_path, images_path, predictor, point_picker, out_path):
     masks = None
     points = None
     while not finished:
-        print(f'Processing {video_path}')
         split_video_into_images(video_path, images_path)
         points = point_picker.pick_points()
         masks = get_masks_from_video(images_path, predictor, points)
@@ -170,7 +169,9 @@ def main():
     point_picker = PointPicker(images_path)
     videos = get_relevant_videos(videos_path)
 
-    for video_path in videos:
+    for i, video_path in enumerate(videos):
+        print(f'Processing {video_path} ({i + 1}/{len(videos)})')
+
         video_path_structure = os.path.dirname(video_path).split('/')[1:]
         out_path = os.path.join(output_path, *video_path_structure)
         if os.path.exists(out_path):
