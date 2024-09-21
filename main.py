@@ -15,8 +15,11 @@ class PointPicker(object):
 
     def on_mouse(self, event, x, y, flags, param):
         if event == cv.EVENT_LBUTTONDOWN:
-            self.points.append((self.current_frame_idx, [x, y]))
-            print(f'Point {self.current_frame_idx}: {x}, {y}')
+            self.points.append((self.current_frame_idx, [x, y], 1))
+            print(f'Positive point {self.current_frame_idx}: {x}, {y}')
+        elif event == cv.EVENT_RBUTTONDOWN:
+            self.points.append((self.current_frame_idx, [x, y], 0))
+            print(f'Negative point {self.current_frame_idx}: {x}, {y}')
 
     def pick_points(self):
         self.points = []
@@ -57,7 +60,7 @@ def visualize_masks(frames, masks):
         color = np.array([0., 1., 0.])
         h, w = mask.shape[-2:]
         mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-        mask_image = 0.8 * frame + 0.2 * mask_image
+        mask_image = 0.6 * frame + 0.4 * mask_image
         mask_image = mask_image.astype(np.uint8)
         cv.imshow('mask', mask_image)
         if cv.waitKey(0) & 0xFF == ord('q'):
@@ -66,6 +69,11 @@ def visualize_masks(frames, masks):
 
 
 def get_masks_from_video(images_path, predictor, points):
+    frame_points = {}
+    for point in points:
+        if point[0] not in frame_points:
+            frame_points[point[0]] = []
+        frame_points[point[0]].append(point)
     ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
 
     np_masks = []
@@ -73,12 +81,13 @@ def get_masks_from_video(images_path, predictor, points):
         state = predictor.init_state(video_path=images_path)
 
         # add new prompts and instantly get the output on the same frame
-        for point in points:
-            p = np.array([point[1]], np.float32)
-            labels = np.array([1], np.int32)
+        for points in frame_points.values():
+            frame_idx = points[0][0]
+            p = np.array([point[1] for point in points], np.float32)
+            labels = np.array([point[2] for point in points], np.int32)
             _, out_obj_ids, out_mask_logits = predictor.add_new_points_or_box(
                 inference_state=state,
-                frame_idx=point[0],
+                frame_idx=frame_idx,
                 obj_id=ann_obj_id,
                 points=p,
                 labels=labels,
