@@ -1,5 +1,6 @@
 import os
 import cv2 as cv
+from sympy.physics.units import current
 
 
 def read_video(video_path):
@@ -35,6 +36,8 @@ def split_video(frames):
             print(f'Created clip with {end_idx - start_idx + 1} frames')
         elif key == 83:  # right arrow key
             current_idx = min(current_idx + 1, len(frames) - 1)
+            if current_idx == len(frames) - 1:
+                print('Reached end of video')
         elif key == 81:  # left arrow key
             current_idx = max(current_idx - 1, 0)
         elif key == ord('q'):
@@ -45,7 +48,7 @@ def split_video(frames):
 
 def save_clips(clips, fps, save_directory):
     if not os.path.exists(save_directory):
-        os.mkdir(save_directory)
+        os.makedirs(save_directory, exist_ok=True)
     for i, clip in enumerate(clips):
         save_dir = os.path.join(save_directory, '{:02d}'.format(i + 1))
         if not os.path.exists(save_dir):
@@ -59,9 +62,10 @@ def save_clips(clips, fps, save_directory):
 
 
 if __name__ == '__main__':
-    video_path = 'recordings/bouncing_ball_table.mp4'
-    save_directory = 'split_clips'
+    video_path = 'recordings/new/bouncing_ball_tennis.mp4'
+    save_directory = 'split_clips/bouncing_ball/tennis'
 
     frames, fps = read_video(video_path)
+    print(fps)
     clips = split_video(frames)
     save_clips(clips, fps, save_directory)

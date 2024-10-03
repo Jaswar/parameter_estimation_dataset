@@ -25,13 +25,20 @@ class PointPicker(object):
         self.points = []
         self.current_frame_idx = 0
         cv.namedWindow('image')
-        for file in sorted(os.listdir(self.images_path)):
-            image = cv.imread(os.path.join(self.images_path, file))
+        files = sorted(os.listdir(self.images_path))
+        while True:
+            image = cv.imread(os.path.join(self.images_path, files[self.current_frame_idx]))
             cv.imshow('image', image)
             cv.setMouseCallback('image', self.on_mouse)
-            if cv.waitKey(0) & 0xFF == ord('q'):
+            key = cv.waitKey(0) & 0xFF
+            if key == ord('q'):
                 break
-            self.current_frame_idx += 1
+            elif key == 83:  # right arrow key
+                self.current_frame_idx = min(self.current_frame_idx + 1, len(files) - 1)
+                if self.current_frame_idx == len(files) - 1:
+                    print('Reached end of video')
+            elif key == 81:  # left arrow key
+                self.current_frame_idx = max(self.current_frame_idx - 1, 0)
         cv.destroyAllWindows()
         return self.points
 
@@ -40,13 +47,9 @@ def get_relevant_videos(videos_path, min_frames=60):
     videos = {}
     for root, dirs, files in os.walk(videos_path):
         for file in files:
-            if file != 'Camera_1.mp4':
-                continue
             if not file.endswith('.mp4'):
                 continue
             path = os.path.join(root, file)
-            if 'multi' in path or 'liquid' in path:
-                continue
             capture = cv.VideoCapture(path)
             num_frames = capture.get(cv.CAP_PROP_FRAME_COUNT)
             videos[path] = num_frames
@@ -170,7 +173,7 @@ def process_video(video_path, images_path, predictor, point_picker, out_path):
 
 
 def main():
-    videos_path = 'phys101'
+    videos_path = 'split_clips'
     output_path = 'output'
     images_path = 'images'
     sam2_checkpoint = "models/sam2_hiera_large.pt"
