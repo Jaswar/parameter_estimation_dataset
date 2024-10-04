@@ -43,7 +43,7 @@ class PointPicker(object):
         return self.points
 
 
-def get_relevant_videos(videos_path, min_frames=60):
+def get_relevant_videos(videos_path, min_frames=0):
     videos = {}
     for root, dirs, files in os.walk(videos_path):
         for file in files:
@@ -173,7 +173,7 @@ def process_video(video_path, images_path, predictor, point_picker, out_path):
 
 
 def main():
-    videos_path = 'split_clips'
+    videos_path = 'output_selected'
     output_path = 'output'
     images_path = 'images'
     sam2_checkpoint = "models/sam2_hiera_large.pt"

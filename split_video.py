@@ -62,8 +62,8 @@ def save_clips(clips, fps, save_directory):
 
 
 if __name__ == '__main__':
-    video_path = 'recordings/new/bouncing_ball_tennis.mp4'
-    save_directory = 'split_clips/bouncing_ball/tennis'
+    video_path = 'recordings/new/sliding_block_25.mp4'
+    save_directory = 'split_clips/sliding_block/25'
 
     frames, fps = read_video(video_path)
     print(fps)

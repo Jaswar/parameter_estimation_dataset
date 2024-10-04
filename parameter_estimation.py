@@ -2,6 +2,7 @@ import os
 import cv2 as cv
 from sympy.physics.units import current
 import numpy as np
+import json
 
 
 def read_video(video_path):
@@ -112,6 +113,43 @@ def process_bouncing_ball_videos(videos_path):
     print(f'Max elasticity: {maxv}')
 
 
+def friction_coefficient_estimation(frames, fps, angle):
+    angle_rad = np.deg2rad(angle)
+    g = 9.81
+    s = (81.3 - 8.7) / 100.0  # 81.3 cm - 8.7 cm
+    t = len(frames) / fps
+    mu = np.tan(angle_rad) - 2 * s / (g * t ** 2)
+    return mu
+
+
+def process_sliding_block_video(frames, fps, angle):
+    return friction_coefficient_estimation(frames, fps, angle)
+
+
+def process_sliding_block_videos(videos_path, parameters_save_path):
+    with open(parameters_save_path, 'r') as f:
+        parameters = json.load(f)
+    all_coefficients = []
+    for setting in sorted(os.listdir(videos_path)):
+        angle = parameters['sliding_block'][setting]['angle']['mean']
+        for index in sorted(os.listdir(os.path.join(videos_path, setting))):
+            video_path = os.path.join(videos_path, setting, index, 'video.mp4')
+            print(f'Processing video: {video_path}')
+            frames, fps = read_video(video_path)
+            coefficient = process_sliding_block_video(frames, fps, angle)
+            all_coefficients.append(coefficient)
+    print(all_coefficients)
+    mean = np.mean(all_coefficients)
+    std = np.std(all_coefficients)
+    minv = np.min(all_coefficients)
+    maxv = np.max(all_coefficients)
+    # mean, std, minv, maxv = from_saved_data()
+    print(f'Mean elasticity: {mean}')
+    print(f'Std elasticity: {std}')
+    print(f'Min elasticity: {minv}')
+    print(f'Max elasticity: {maxv}')
+
 if __name__ == '__main__':
-    videos_path = 'output_selected/bouncing_ball/tennis'
-    process_bouncing_ball_videos(videos_path)
+    videos_path = 'output_selected/sliding_block'
+    parameters_save_path = 'output_selected/parameters.json'
+    process_sliding_block_videos(videos_path, parameters_save_path)
