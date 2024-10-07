@@ -3,6 +3,7 @@ import cv2 as cv
 import numpy as np
 import torch
 from sam2.build_sam import build_sam2_video_predictor
+import math
 
 
 class PointPicker(object):
@@ -150,16 +151,12 @@ def save_frames_and_masks(frames, masks, points, fps, out_path):
     save_frames(masks, fps, masks_save_path)
 
 
-def process_video(video_path, images_path, predictor, point_picker, out_path):
+def process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path):
+    frames = masks = points = fps = None
     finished = False
-    frames = None
-    masks = None
-    points = None
-    combined = None
-    fps = None
     while not finished:
-        frames, fps = read_video(video_path)
-        split_video_into_images(video_path, images_path)
+        frames, fps = read_video(chunk_path)
+        split_video_into_images(chunk_path, images_path)
         points = point_picker.pick_points()
         masks = get_masks_from_video(images_path, predictor, points)
 
@@ -169,13 +166,43 @@ def process_video(video_path, images_path, predictor, point_picker, out_path):
         choice = input('Repeat? (y/n): ')
         if choice == 'n':
             finished = True
-    save_frames_and_masks(frames, masks, points, fps, out_path)
+    save_frames_and_masks(frames, masks, points, fps, chunk_out_path)
+
+
+def split_into_chunks(video_path, chunking_path):
+    if not os.path.exists(chunking_path):
+        os.mkdir(chunking_path)
+    os.system(f'rm -r {chunking_path}/*')
+    os.system(f'ffmpeg -i {video_path} -c copy -v 2 -map 0 -segment_time 00:10:00 -f segment {chunking_path}/video%03d.mp4')
+
+
+def combine_chunks(chunking_path, out_path):
+    os.makedirs(out_path)
+
+    chunk_dirs = sorted(os.listdir(chunking_path))
+    chunk_dirs = [d for d in chunk_dirs if os.path.isdir(os.path.join(chunking_path, d))]
+    for cdir in chunk_dirs:
+        os.system(f"echo \"file {os.path.join(cdir, 'video.mp4')}\" >> {chunking_path}/video_input.txt")
+        os.system(f"echo \"file {os.path.join(cdir, 'masks.mp4')}\" >> {chunking_path}/masks_input.txt")
+
+    os.system(f'ffmpeg -f concat -i {chunking_path}/video_input.txt -v 2 -c copy {os.path.join(out_path, "video.mp4")}')
+    os.system(f'ffmpeg -f concat -i {chunking_path}/masks_input.txt -v 2 -c copy {os.path.join(out_path, "masks.mp4")}')
+
+
+def process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path):
+    split_into_chunks(video_path, chunking_path)
+    for chunk in sorted(os.listdir(chunking_path)):
+        chunk_path = os.path.join(chunking_path, chunk)
+        chunk_out_path = chunk_path.split('.')[0]
+        process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path)
+    combine_chunks(chunking_path, out_path)
 
 
 def main():
-    videos_path = 'output_selected'
-    output_path = 'output'
+    videos_path = 'output'
+    output_path = 'output_selected'
     images_path = 'images'
+    chunking_path = 'tmp'
     sam2_checkpoint = "models/sam2_hiera_large.pt"
     model_cfg = "sam2_hiera_l.yaml"
 
@@ -196,7 +223,7 @@ def main():
             print(f'{video_path} already processed')
             continue
 
-        process_video(video_path, images_path, predictor, point_picker, out_path)
+        process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path)
 
 
 if __name__ == '__main__':
