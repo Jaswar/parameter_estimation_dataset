@@ -143,7 +143,7 @@ def save_frames_and_masks(frames, masks, points, fps, out_path):
 
     frames = np.array(frames, dtype=np.uint8)
     assert frames.shape == masks.shape, \
-        f'Shape of masks and frames does not match: {frames.shape} vs {masks.shape}'
+        f'Shape of frames and masks does not match: {frames.shape} vs {masks.shape}'
 
     video_save_path = os.path.join(out_path, 'video.mp4')
     save_frames(frames, fps, video_save_path)
@@ -169,11 +169,26 @@ def process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_pa
     save_frames_and_masks(frames, masks, points, fps, chunk_out_path)
 
 
-def split_into_chunks(video_path, chunking_path):
+def split_into_chunks(video_path, chunking_path, chunk_length=600):
     if not os.path.exists(chunking_path):
         os.mkdir(chunking_path)
     os.system(f'rm -r {chunking_path}/*')
-    os.system(f'ffmpeg -i {video_path} -c copy -v 2 -map 0 -segment_time 00:10:00 -f segment {chunking_path}/video%03d.mp4')
+    capture = cv.VideoCapture(video_path)
+    fps = capture.get(cv.CAP_PROP_FPS)
+
+    current_chunk = []
+    current_chunk_idx = 0
+    while True:
+        ret, frame = capture.read()
+        if not ret:
+            break
+        current_chunk.append(frame)
+        if len(current_chunk) == chunk_length:
+            save_frames(current_chunk, fps, os.path.join(chunking_path, f'video{current_chunk_idx:03d}.mp4'))
+            current_chunk = []
+            current_chunk_idx += 1
+    if len(current_chunk) > 0:
+        save_frames(current_chunk, fps, os.path.join(chunking_path, f'video{current_chunk_idx:03d}.mp4'))
 
 
 def combine_chunks(chunking_path, out_path):
@@ -199,8 +214,8 @@ def process_video(video_path, chunking_path, images_path, predictor, point_picke
 
 
 def main():
-    videos_path = 'output'
-    output_path = 'output_selected'
+    videos_path = 'split_clips'
+    output_path = 'output'
     images_path = 'images'
     chunking_path = 'tmp'
     sam2_checkpoint = "models/sam2_hiera_large.pt"
