@@ -72,7 +72,7 @@ def visualize_masks(frames, masks):
     cv.destroyAllWindows()
 
 
-def get_masks_from_video(images_path, predictor, points):
+def get_masks_from_video_sam2(images_path, predictor, points):
     frame_points = {}
     for point in points:
         if point[0] not in frame_points:
@@ -104,6 +104,25 @@ def get_masks_from_video(images_path, predictor, points):
             mask[mask <= 0.] = 0.
             np_masks.append(mask)
     return np_masks
+
+
+def get_masks_from_video_bbox(images_path, predictor, points):
+    assert len(points) == 2, 'Only two points are supported for bbox'
+    first_frame = cv.imread(os.path.join(images_path, '00000.jpg'))
+    h, w, _ = first_frame.shape
+    minx, miny = points[0][1]
+    maxx, maxy = points[1][1]
+    num_frames = len(os.listdir(images_path))
+    masks = np.zeros((num_frames, 1, h, w), dtype=float)
+    masks[:, :, miny:maxy, minx:maxx] = 255.
+    return masks
+
+
+def get_masks_from_video(images_path, predictor, points, use_sam):
+    if use_sam:
+        return get_masks_from_video_sam2(images_path, predictor, points)
+    else:
+        return get_masks_from_video_bbox(images_path, predictor, points)
 
 
 def split_video_into_images(video_path, images_path):
@@ -151,16 +170,17 @@ def save_frames_and_masks(frames, masks, points, fps, out_path):
     save_frames(masks, fps, masks_save_path)
 
 
-def process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path):
+def process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path, use_sam):
     frames = masks = points = fps = None
     finished = False
     while not finished:
         frames, fps = read_video(chunk_path)
         split_video_into_images(chunk_path, images_path)
         points = point_picker.pick_points()
-        masks = get_masks_from_video(images_path, predictor, points)
+        masks = get_masks_from_video(images_path, predictor, points, use_sam)
 
-        frames = frames[points[0][0]:]  # first point is the starting point
+        if use_sam:
+            frames = frames[points[0][0]:]  # first point is the starting point
         visualize_masks(frames, masks)
 
         choice = input('Repeat? (y/n): ')
@@ -204,12 +224,12 @@ def combine_chunks(chunking_path, out_path):
     os.system(f'ffmpeg -f concat -i {chunking_path}/masks_input.txt -v 2 -c copy {os.path.join(out_path, "masks.mp4")}')
 
 
-def process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path):
+def process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path, use_sam):
     split_into_chunks(video_path, chunking_path)
     for chunk in sorted(os.listdir(chunking_path)):
         chunk_path = os.path.join(chunking_path, chunk)
         chunk_out_path = chunk_path.split('.')[0]
-        process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path)
+        process_chunk(chunk_path, images_path, predictor, point_picker, chunk_out_path, use_sam)
     combine_chunks(chunking_path, out_path)
 
 
@@ -220,6 +240,7 @@ def main():
     chunking_path = 'tmp'
     sam2_checkpoint = "models/sam2_hiera_large.pt"
     model_cfg = "sam2_hiera_l.yaml"
+    use_sam = True
 
     if torch.cuda.is_available():
         device = 'cuda'
@@ -238,7 +259,7 @@ def main():
             print(f'{video_path} already processed')
             continue
 
-        process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path)
+        process_video(video_path, chunking_path, images_path, predictor, point_picker, out_path, use_sam)
 
 
 if __name__ == '__main__':

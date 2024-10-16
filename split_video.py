@@ -1,6 +1,9 @@
 import os
 import cv2 as cv
 from sympy.physics.units import current
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
 
 def read_video(video_path):
@@ -46,6 +49,29 @@ def split_video(frames):
     return clips
 
 
+def split_led_video(frames):
+    values = [np.mean(cv.cvtColor(frame, cv.COLOR_BGR2HSV)[:, :, 2]) for frame in frames]
+
+    print(f'Total frames: {len(values)}')
+    clips = []
+    while True:
+        start = int(input('Start: '))
+        if start > len(values):
+            break
+        end = int(input('End: '))
+        to_display = values[start:end]
+        plt.figure(figsize=(40, 20))
+        plt.plot(to_display)
+        plt.show()
+        print(f'Clip length: {len(to_display)}')
+        keep = input('Keep? (y/n): ') == 'y'
+        if keep:
+            print('Clip created')
+            clips.append(frames[start:end])
+    return clips
+
+
+
 def save_clips(clips, fps, save_directory):
     if not os.path.exists(save_directory):
         os.makedirs(save_directory, exist_ok=True)
@@ -62,8 +88,10 @@ def save_clips(clips, fps, save_directory):
 
 
 if __name__ == '__main__':
-    video_path = 'recordings/new/sliding_block_25.mp4'
-    save_directory = 'split_clips/sliding_block/25'
+    matplotlib.use('tkagg')
+
+    video_path = 'recordings/new/dropped_ball_large.mp4'
+    save_directory = 'split_clips/dropped_ball/large'
 
     frames, fps = read_video(video_path)
     print(fps)

@@ -3,6 +3,7 @@ import cv2 as cv
 from sympy.physics.units import current
 import numpy as np
 import json
+import matplotlib.pyplot as plt
 
 
 def read_video(video_path):
@@ -13,6 +14,7 @@ def read_video(video_path):
         ret, frame = capture.read()
         if not ret:
             break
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frames.append(frame)
     capture.release()
     return frames, fps
@@ -92,6 +94,25 @@ def process_bouncing_ball_video(frames, fps):
     return elasticities
 
 
+def process_led_video(frames, fps):
+    # cv.imshow('frame', frames[0])
+    # cv.waitKey(0)
+    # cv.destroyAllWindows()
+
+    pixel_x = 1026
+    pixel_y = 441
+    # for frame in frames:
+    #     cv.imshow('frame', frame)
+    #     frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    #     print(np.mean(frame[:, :, 2]))
+    #     cv.waitKey(0)
+    # frames = [cv.cvtColor(frame, cv.COLOR_BGR2HSV) for frame in frames]
+    values = [np.mean(frame[:, :, 2]) for frame in frames]
+    plt.plot(values[260:380])
+    plt.savefig('output_selected/led/led_experiment_2s_first.png')
+    # print(values)
+
+
 def process_bouncing_ball_videos(videos_path):
     all_elasticities = []
     for index in sorted(os.listdir(videos_path)):
@@ -126,6 +147,11 @@ def process_sliding_block_video(frames, fps, angle):
     return friction_coefficient_estimation(frames, fps, angle)
 
 
+def process_led_videos(videos_path):
+    frames, fps = read_video(videos_path)
+    process_led_video(frames, fps)
+
+
 def process_sliding_block_videos(videos_path, parameters_save_path):
     with open(parameters_save_path, 'r') as f:
         parameters = json.load(f)
@@ -152,4 +178,5 @@ def process_sliding_block_videos(videos_path, parameters_save_path):
 if __name__ == '__main__':
     videos_path = 'output_selected/sliding_block'
     parameters_save_path = 'output_selected/parameters.json'
-    process_sliding_block_videos(videos_path, parameters_save_path)
+    # process_sliding_block_videos(videos_path, parameters_save_path)
+    process_led_videos('output_selected/led/led_experiment_2s.mp4')
