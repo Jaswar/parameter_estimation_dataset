@@ -4,6 +4,7 @@ from sympy.physics.units import current
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 
 def read_video(video_path):
@@ -113,6 +114,38 @@ def process_led_video(frames, fps):
     # print(values)
 
 
+def process_pendulum_video(frames, fps):
+    coords_x = []
+    for frame in frames:
+        coordinates = np.where(frame[:, :, 2] > 127.)
+        mean_x = np.mean(coordinates[1])
+        mean_y = np.mean(coordinates[0])
+        coords_x.append(mean_x)
+    coords_x = np.array(coords_x)
+    coords_x = coords_x - np.median(coords_x)
+    plt.plot(coords_x)
+    plt.savefig('tmp/pendulum.png')
+    plt.clf()
+
+    peaks = []
+    for i in range(5, len(coords_x) - 5):
+        if coords_x[i] > coords_x[i - 5] and coords_x[i] > coords_x[i + 5]:
+            peaks.append((i / fps, coords_x[i]))
+    plt.plot([p[0] for p in peaks], [p[1] for p in peaks], 'ro')
+    plt.savefig('tmp/pendulum_peaks.png')
+    plt.clf()
+
+    ln_peaks = [(inx, np.log(val)) for (inx, val) in peaks]
+    plt.plot([p[0] for p in ln_peaks], [p[1] for p in ln_peaks], 'ro')
+    plt.savefig('tmp/pendulum_peaks_log.png')
+    plt.clf()
+
+    X = np.array([p[0] for p in ln_peaks]).reshape(-1, 1)
+    y = np.array([p[1] for p in ln_peaks])
+    reg = LinearRegression().fit(X, y)
+    return reg.coef_ * 2  # multiply by 2: https://web.physics.ucsb.edu/~lecturedemonstrations/Composer/Pages/40.37.html
+
+
 def process_bouncing_ball_videos(videos_path):
     all_elasticities = []
     for index in sorted(os.listdir(videos_path)):
@@ -151,6 +184,24 @@ def process_led_videos(videos_path):
     frames, fps = read_video(videos_path)
     process_led_video(frames, fps)
 
+def process_pendulum_videos(videos_path):
+    coeffs = []
+    for folder in os.listdir(videos_path):
+        video_path = os.path.join(videos_path, folder, 'masks.mp4')
+        print(f'Processing video: {video_path}')
+        frames, fps = read_video(video_path)
+        coeff = process_pendulum_video(frames, fps)
+        coeffs.append(coeff)
+    coeffs = np.array(coeffs)
+    mean = np.mean(coeffs)
+    std = np.std(coeffs)
+    minv = np.min(coeffs)
+    maxv = np.max(coeffs)
+    print(f'Mean coefficient: {mean}')
+    print(f'Std coefficient: {std}')
+    print(f'Min coefficient: {minv}')
+    print(f'Max coefficient: {maxv}')
+
 
 def process_sliding_block_videos(videos_path, parameters_save_path):
     with open(parameters_save_path, 'r') as f:
@@ -176,7 +227,7 @@ def process_sliding_block_videos(videos_path, parameters_save_path):
     print(f'Max elasticity: {maxv}')
 
 if __name__ == '__main__':
-    videos_path = 'output_selected/sliding_block'
+    videos_path = 'output_selected/pendulum/pendulum_150'
     parameters_save_path = 'output_selected/parameters.json'
     # process_sliding_block_videos(videos_path, parameters_save_path)
-    process_led_videos('output_selected/led/led_experiment_2s.mp4')
+    process_pendulum_videos(videos_path)
